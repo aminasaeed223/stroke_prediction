@@ -1,30 +1,35 @@
-
-
 import streamlit as st
 import pandas as pd
 import joblib
+import numpy as np
 
+# page title and icon
 st.set_page_config(
     page_title="Stroke Risk Prediction System",
     page_icon="🧠",
     layout="wide"
 )
 
-model = joblib.load('model.pkl')
-scaler = joblib.load('scaler.pkl')
+# loading model and scaler i saved from the notebook
+model = joblib.load(r'C:\Users\Ar\Desktop\stroke_prediction\model.pkl')
+scaler = joblib.load(r'C:\Users\Ar\Desktop\stroke_prediction\scaler.pkl')
 
 st.title("🧠 Stroke Risk Prediction System")
-st.write("Enter patient details below to predict stroke risk based on clinical risk factors using Logistic Regression")
+st.write("Enter patient details to predict stroke risk using Linear Regression")
 
+st.markdown("---")
+
+# dividing screen into two columns for better layout
 col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("Patient Information")
+    # sliders are easier for doctors to use than typing numbers
     age = st.slider("Age", 28, 77, 50)
     resting_bp = st.slider("Resting Blood Pressure", 80, 200, 120)
     cholesterol = st.slider("Cholesterol", 100, 600, 200)
     max_hr = st.slider("Max Heart Rate", 60, 202, 150)
-    oldpeak = st.slider("Oldpeak (ST depression)", -2.6, 6.2, 0.0, 0.1)
+    oldpeak = st.slider("Oldpeak", -2.6, 6.2, 0.0, 0.1)
     sex = st.selectbox("Sex", ["Male", "Female"])
 
 with col2:
@@ -35,42 +40,31 @@ with col2:
     exercise_angina = st.radio("Exercise Induced Angina?", ["No", "Yes"])
     st_slope = st.selectbox("ST Slope", ["Up", "Flat", "Down"])
 
-# ============================================
-# PART 3: PREDICTION LOGIC
-# ============================================
-
 st.markdown("---")
 
-# Predict button — when clicked, runs the model
+# everything below runs only when the button is clicked
 if st.button("🔍 Predict Stroke Risk", use_container_width=True):
 
-    # ----------------------------------------
-    # Convert user inputs into model format
-    # ----------------------------------------
-    
-    # Convert Yes/No and categorical text inputs into 
-    # the same encoded format the model was trained on
+    # converting text to 0 or 1 because the model was trained on numbers
     sex_m = 1 if sex == "Male" else 0
     fasting_bs_val = 1 if fasting_bs == "Yes" else 0
     exercise_angina_y = 1 if exercise_angina == "Yes" else 0
-    
-    # ChestPainType one-hot encoding (ASY is the reference/dropped category)
+
+    # chest pain has 4 types, ASY was dropped during training so no column for it
     chest_pain_ata = 1 if chest_pain == "ATA" else 0
     chest_pain_nap = 1 if chest_pain == "NAP" else 0
     chest_pain_ta = 1 if chest_pain == "TA" else 0
-    
-    # RestingECG one-hot encoding (LVH is the reference/dropped category)
+
+    # LVH was dropped during training so no column for it
     resting_ecg_normal = 1 if resting_ecg == "Normal" else 0
     resting_ecg_st = 1 if resting_ecg == "ST" else 0
-    
-    # ST_Slope one-hot encoding (Down is the reference/dropped category)
+
+    # Down was dropped during training so no column for it
     st_slope_flat = 1 if st_slope == "Flat" else 0
     st_slope_up = 1 if st_slope == "Up" else 0
-    
-    # ----------------------------------------
-    # Build input row in EXACT same column order as training data
-    # ----------------------------------------
-    
+
+    # column order here must match exactly what was used in training
+    # if order is wrong the model gives wrong predictions silently
     input_data = pd.DataFrame([[
         age, resting_bp, cholesterol, fasting_bs_val, max_hr, oldpeak,
         sex_m, chest_pain_ata, chest_pain_nap, chest_pain_ta,
@@ -82,70 +76,47 @@ if st.button("🔍 Predict Stroke Risk", use_container_width=True):
         'RestingECG_Normal', 'RestingECG_ST', 'ExerciseAngina_Y',
         'ST_Slope_Flat', 'ST_Slope_Up'
     ])
-    
-    # ----------------------------------------
-    # Scale input using the SAME scaler from training
-    # ----------------------------------------
+
+    # using the same scaler from training so values are scaled the same way
     input_scaled = scaler.transform(input_data)
-    
-    # ----------------------------------------
-    # Make prediction
-    # ----------------------------------------
-    # Linear Regression gives continuous value
-# we apply 0.5 threshold to convert to 0 or 1
+
+    # linear regression gives a raw number not 0 or 1
+    # i clip it between 0 and 1 and use 0.5 as the cutoff
     raw = model.predict(input_scaled)[0]
     prediction = 1 if raw >= 0.5 else 0
-    # Linear Regression has no predict_proba
-# so we use raw prediction value as probability
-    probability = model.predict(input_scaled)[0]
+    probability = float(np.clip(raw, 0, 1))
 
-    # Clip between 0 and 1 because Linear Regression
-    # can predict values outside this range
-    probability = float(max(0, min(1, probability)))
-
-    # ----------------------------------------
-    # PART 4: DISPLAY RESULTS
-    # ----------------------------------------
-    
     st.markdown("---")
     st.subheader("Prediction Result")
-    
-    # Convert probability to percentage for display
-    risk_percentage = round(probability * 100, 2)
-    
-    # Show result based on prediction
-    if prediction == 1:
-        st.error(f"⚠️ High Stroke Risk Detected — {risk_percentage}% probability")
-        st.write("This patient shows risk factors associated with cardiovascular disease. Please consult a medical professional for further evaluation.")
-    else:
-        st.success(f"✅ Low Stroke Risk — {risk_percentage}% probability")
-        st.write("This patient shows low risk based on the entered factors. Regular checkups are still recommended.")
-    
-    # Progress bar to visually show risk percentage
-    st.progress(int(risk_percentage))
-    
-    # ----------------------------------------
-    # Show key risk factors entered
-    # ----------------------------------------
-    
-    st.markdown("---")
-    st.subheader("Key Risk Factors Summary")
-    
-    col3, col4, col5, col4_extra = st.columns(4)
-    
-    with col3:
-        st.metric("Age", f"{age} years")
-    with col4:
-        st.metric("Cholesterol", f"{cholesterol} mg/dL")
-    with col5:
-        st.metric("Resting BP", f"{resting_bp} mmHg")
-    with col4_extra:
-        st.metric("Max Heart Rate", f"{max_hr} bpm")
-    
-    # ----------------------------------------
-    # Disclaimer — important for healthcare apps
-    # ----------------------------------------
-    st.markdown("---")
-    st.caption("⚠️ Disclaimer: This tool is for educational purposes only and is not a substitute for professional medical diagnosis. Always consult a qualified healthcare provider.")
 
-    
+    risk_percentage = round(probability * 100, 2)
+
+    # red for high risk, green for low risk
+    if prediction == 1:
+        st.error("⚠️ High Stroke Risk Detected — " + str(risk_percentage) + "% probability")
+        st.write("This patient shows high risk factors. Please consult a medical professional immediately.")
+    else:
+        st.success("✅ Low Stroke Risk — " + str(risk_percentage) + "% probability")
+        st.write("This patient shows low risk based on entered details. Regular checkups are still recommended.")
+
+    # visual bar to show the risk level
+    st.progress(int(risk_percentage))
+
+    st.markdown("---")
+    st.subheader("Patient Summary")
+
+    # showing 4 key values as cards
+    col3, col4, col5, col6 = st.columns(4)
+
+    with col3:
+        st.metric("Age", str(age) + " years")
+    with col4:
+        st.metric("Cholesterol", str(cholesterol) + " mg/dL")
+    with col5:
+        st.metric("Resting BP", str(resting_bp) + " mmHg")
+    with col6:
+        st.metric("Max Heart Rate", str(max_hr) + " bpm")
+
+    st.markdown("---")
+    # always important to add disclaimer in healthcare apps
+    st.caption("⚠️ Disclaimer: This tool is for educational purposes only. Always consult a qualified healthcare provider.")
