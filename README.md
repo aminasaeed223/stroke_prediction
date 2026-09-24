@@ -1,17 +1,8 @@
 # Stroke Prediction System using Logistic Regression
 
-A machine learning web application that predicts stroke risk based on patient clinical data, deployed via Streamlit.
+A machine learning web app that predicts stroke risk from patient clinical data using Logistic Regression, trained on 5,110 patients from Kaggle.
 
-## Dataset
-- Kaggle Stroke Prediction Dataset
-- 5,110 patients, 12 features
-- Target: stroke (0 = No, 1 = Yes)
+## Tech Stack
+Python · Scikit-learn · Streamlit · Pandas · SMOTE · Joblib
 
-## Methodology
-- Missing BMI values filled with median
-- One-hot encoding for categorical columns
-- SMOTE for class imbalance
-- StandardScaler for normalization
-- Logistic Regression (Scikit-learn)
 
-## Project Structure
