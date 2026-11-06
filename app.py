@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
+import os
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -336,11 +337,25 @@ st.markdown("""
 # LOAD MODEL
 @st.cache_resource
 def load_model():
-    model = joblib.load(r'C:\Users\Ar\Desktop\stroke_prediction\model.pkl')
-    scaler = joblib.load(r'C:\Users\Ar\Desktop\stroke_prediction\scaler.pkl')
-    return model, scaler
+    # folder where app.py lives - works locally and on Streamlit Cloud
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # checks both repo root and models/ folder
+    for folder in [base_dir, os.path.join(base_dir, 'models')]:
+        model_path = os.path.join(folder, 'model.pkl')
+        scaler_path = os.path.join(folder, 'scaler.pkl')
+        if os.path.exists(model_path) and os.path.exists(scaler_path):
+            model = joblib.load(model_path)
+            scaler = joblib.load(scaler_path)
+            return model, scaler
+
+    return None, None
 
 model, scaler = load_model()
+
+if model is None:
+    st.error("model.pkl or scaler.pkl not found. Upload both files to the GitHub repo next to app.py or inside a models/ folder.")
+    st.stop()
 
 # NAVBAR
 st.markdown("""
